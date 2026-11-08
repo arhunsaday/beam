@@ -1,16 +1,8 @@
-<!doctype html>
-<html lang="en">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Beam · Teleprinter</title>
-<meta name="description" content="Feed a slip into the machine, get it on your phone.">
-<meta name="theme-color" content="#e8e2d6">
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='7' fill='%23e5482d'/%3E%3C/svg%3E">
-<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=VT323&display=swap" rel="stylesheet">
-<style>
-  @view-transition { navigation: auto; }
+import { Beam } from '../core.js';
+
+export const theme = '#e8e2d6';
+
+export const css = `
   :root {
     --desk: #e8e2d6; --ink: #24211c; --muted: #8c8579; --paper: #fbf9f3; --body: #f4f0e6; --body2: #ddd6c7; --edge: #c9c0ae;
     --red: #e5482d; --green: #41c26b; --lcd: #b9d37a; --lcdbg: #27301d;
@@ -28,7 +20,6 @@
     background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .5 0 0 0 0 .45 0 0 0 0 .4 0 0 0 .09 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E"); }
   .desk { width: 100%; max-width: 480px; }
 
-  /* ---------- the machine ---------- */
   .machine { position: relative; z-index: 3; border-radius: 22px 22px 14px 14px; padding: 18px 20px 26px;
              background: linear-gradient(var(--body), var(--body2)); color: var(--ink);
              box-shadow: inset 0 1.5px 0 rgb(255 255 255 / .55), inset 0 -3px 0 rgb(0 0 0 / .08), 0 1px 0 var(--edge), 0 22px 40px -18px rgb(60 40 20 / .45), 0 4px 10px -4px rgb(60 40 20 / .25); }
@@ -39,8 +30,6 @@
   .label { flex: 1; min-width: 0; }
   .label b { display: block; font-weight: 600; letter-spacing: .18em; font-size: 15px; }
   .label small { display: block; font-size: 10px; letter-spacing: .14em; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .to { all: unset; cursor: pointer; border-bottom: 1px dotted #b5ad9e; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: inline-block; vertical-align: bottom; }
-  .to:hover { color: var(--red); border-color: var(--red); }
   .lcd { width: 150px; height: 44px; border-radius: 6px; background: var(--lcdbg); color: var(--lcd); padding: 0 10px;
          display: flex; align-items: center; justify-content: space-between; font: 24px/1 VT323, monospace; letter-spacing: .04em;
          text-shadow: 0 0 6px rgb(185 211 122 / .55); box-shadow: inset 0 2px 6px rgb(0 0 0 / .6), 0 1px 0 rgb(255 255 255 / .4); overflow: hidden; white-space: nowrap; }
@@ -61,7 +50,6 @@
   .slot { position: absolute; left: 22px; right: 22px; bottom: 9px; height: 7px; border-radius: 4px; background: #15130f;
           box-shadow: inset 0 2px 3px #000, 0 1px 0 rgb(255 255 255 / .45); }
 
-  /* ---------- the paper ---------- */
   .feed { position: relative; z-index: 2; margin: -12px 34px 0; padding: 0 0 60px; clip-path: inset(0 -60px -120px -60px); }
   .paper-wrap { filter: drop-shadow(0 10px 14px rgb(60 40 20 / .18)) drop-shadow(0 1px 1px rgb(60 40 20 / .15)); }
   .paper { position: relative; background: var(--paper); color: #24211c; padding: 30px 22px 34px;
@@ -74,6 +62,8 @@
   .rule { border-top: 1.5px dashed #c9c1b1; margin: 14px 0; }
   dl { display: grid; grid-template-columns: 52px 1fr; gap: 3px 10px; font-size: 12px; }
   dt { color: #8a8375; } dd { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .to { all: unset; cursor: pointer; border-bottom: 1px dotted #b5ad9e; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: inline-block; vertical-align: bottom; }
+  .to:hover { color: var(--red); border-color: var(--red); }
   textarea { display: block; width: 100%; min-height: 96px; resize: none; border: 0; outline: 0; background: none; color: #1d1a16; caret-color: var(--red);
              font: 500 16px/1.55 "IBM Plex Mono", monospace; overflow: hidden; }
   textarea::placeholder { color: #b5ad9e; }
@@ -93,9 +83,9 @@
   .log div { display: flex; justify-content: space-between; gap: 12px; border-bottom: 1px dotted var(--edge); padding-bottom: 5px; }
   .log span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   @media (max-width: 420px) { .lcd { width: 112px; font-size: 20px; } .feed, .log { margin-left: 16px; margin-right: 16px; } }
-</style>
-</head>
-<body>
+`;
+
+export const html = `
 <div class="desk">
   <div class="machine" id="machine">
     <div class="row">
@@ -115,7 +105,7 @@
         <div class="rule"></div>
         <dl><dt>DATE</dt><dd id="date"></dd><dt>TO</dt><dd><button class="to" id="toLine" title="Change topic"></button></dd><dt>TYPE</dt><dd id="type">—</dd></dl>
         <div class="rule"></div>
-        <textarea id="msg" placeholder="Type a note or paste a link…" autofocus></textarea>
+        <textarea id="msg" placeholder="Type a note or paste a link…"></textarea>
         <div class="file" id="file"><span>📎</span><b id="fname"></b><span id="fsize"></span><button id="unfile" aria-label="Remove file">✕</button></div>
         <div class="rule"></div>
         <div class="foot"><span id="count">0 CH</span><span id="no">NO. 0001</span></div>
@@ -127,114 +117,128 @@
   </div>
   <div class="log" id="log"></div>
 </div>
+`;
 
-<script src="core.js"></script>
-<script>
-const $ = (id) => document.getElementById(id);
-const msg = $('msg'), paper = $('paper'), feed = $('feed'), sendBtn = $('send'), machine = $('machine');
-let file = null, busy = false, no = +(localStorage.getItem('beam.slip') || 1);
-const RM = Beam.reducedMotion;
 const pad = (n) => String(n).padStart(4, '0');
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
-
 function hash(s) { let h = 2166136261; for (const c of s) h = Math.imul(h ^ c.codePointAt(0), 16777619); return h >>> 0; }
-function barcode(seed) {
-  let h = seed || 7, html = '';
-  for (let i = 0; i < 46; i++) { h = Math.imul(h ^ (h >>> 15), 2246822507) >>> 0; const w = 1 + (h % 3), gap = 1 + ((h >> 4) % 3); html += `<i style="width:${w}px;margin-right:${gap}px"></i>`; }
-  $('barcode').innerHTML = html;
-}
-function lcd(l, r = '', err = false) { $('lcdL').textContent = l; $('lcdR').textContent = r; $('lcd').classList.toggle('err', err); }
-function led(state) { $('led').className = 'led ' + state; }
 
-function render() {
-  const d = Beam.detect(msg.value, file), t = msg.value.trim();
-  $('type').textContent = d.kind === 'empty' ? '—' : d.kind === 'link' ? `LINK · ${d.host}` : d.kind === 'file' ? `FILE · ${d.size}` : 'NOTE';
-  $('count').textContent = `${t.length} CH`;
-  sendBtn.disabled = d.kind === 'empty';
-  if (!busy) d.kind === 'empty' ? lcd('READY') : lcd(d.kind === 'link' ? 'LINK' : d.kind === 'file' ? 'FILE' : 'NOTE', d.kind === 'file' ? d.size.replace(' ', '') : `${t.length}CH`);
-  barcode(hash(t + (file?.name || '')));
-  msg.style.height = 'auto'; msg.style.height = msg.scrollHeight + 'px';
-  if (t || file) $('stamp').style.opacity = 0;
-}
-function freshSlip() {
-  const d = new Date();
-  $('date').textContent = d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }).toUpperCase() + '  ' + d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
-  $('no').textContent = 'NO. ' + pad(no);
-}
-function setFile(f) {
-  file = f || null;
-  $('file').classList.toggle('on', !!file);
-  if (file) { $('fname').textContent = file.name; $('fsize').textContent = Beam.fmtSize(file.size); }
-  msg.placeholder = file ? 'Add a message (optional)…' : 'Type a note or paste a link…';
-  render(); msg.focus();
-}
+export function mount({ signal, draft }) {
+  const $ = (id) => document.getElementById(id);
+  const msg = $('msg'), paper = $('paper'), sendBtn = $('send'), machine = $('machine');
+  const sheet = paper.parentElement;
+  let file = null, busy = false, no = +(Beam.store.get('slip', 1));
+  const RM = Beam.reducedMotion;
 
-/* ---------- paper feed ---------- */
-const feedIn = () => paper.parentElement.animate(
-  [{ transform: 'translateY(0)' }, { transform: 'translate(-1px, -40%)' }, { transform: 'translate(1px, -75%)' }, { transform: `translateY(calc(-100% - 20px))` }],
-  { duration: RM ? 1 : 950, easing: 'steps(16, end)', fill: 'forwards' }).finished;
-const feedOut = (dur = 1200, steps = 22) => paper.parentElement.animate(
-  [{ transform: `translateY(calc(-100% - 20px))` }, { transform: 'translate(1px, -50%)' }, { transform: 'translateY(0)' }],
-  { duration: RM ? 1 : dur, easing: `steps(${steps}, end)`, fill: 'forwards' }).finished;
-
-async function send() {
-  const d = Beam.detect(msg.value, file);
-  if (d.kind === 'empty' || busy) return;
-  busy = true; sendBtn.disabled = true; sendBtn.classList.add('down'); setTimeout(() => sendBtn.classList.remove('down'), 140);
-  $('stamp').style.opacity = 0;
-  Beam.sfx('key'); Beam.sfx('feed', { steps: 16, dur: .95 }, 60);
-  machine.classList.add('work'); led('blink');
-  let dots = 0; const progress = setInterval(() => lcd('TX', '▮'.repeat(dots % 6).padEnd(5, '▯'), false, dots++), 110);
-  const req = Beam.send({ text: msg.value, file });
-  const fedIn = feedIn();
-  try {
-    const [{ ms }] = await Promise.all([req, fedIn]);
-    clearInterval(progress); machine.classList.remove('work');
-    led('on'); lcd('SENT ✓', `${ms}MS`);
-    Beam.sfx('bell');
-    navigator.vibrate?.(30);
-    const row = document.createElement('div');
-    row.innerHTML = `<span></span><span>NO.${pad(no)} · ${new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}</span>`;
-    row.firstChild.textContent = `${d.emoji} ${d.kind === 'link' ? d.host : d.kind === 'file' ? file.name : msg.value.trim().slice(0, 48)}`;
-    $('log').prepend(row); row.animate([{ opacity: 0, transform: 'translateY(-6px)' }, { opacity: 1, transform: 'none' }], 400);
-    while ($('log').children.length > 5) $('log').lastChild.remove();
-    no++; localStorage.setItem('beam.slip', no);
-    msg.value = ''; setFile(null); freshSlip();
-    await wait(250); machine.classList.add('work');
-    Beam.sfx('feed', { steps: 22, dur: 1.2 });
-    await feedOut();
-  } catch (e) {
-    clearInterval(progress); await fedIn.catch(() => {});
-    led('err'); lcd('ERR', '', true);
-    Beam.sfx('error'); Beam.sfx('feed', { steps: 8, dur: .42 });
-    $('stampWhy').textContent = e.message.toUpperCase().slice(0, 26);
-    await feedOut(420, 8);
-    $('stamp').animate([{ opacity: 0, transform: 'rotate(-9deg) scale(2.4)' }, { opacity: .9, transform: 'rotate(-9deg) scale(.96)', offset: .7 }, { opacity: .85, transform: 'rotate(-9deg) scale(1)' }],
-      { duration: RM ? 1 : 260, easing: 'cubic-bezier(.5, 0, .9, .5)', fill: 'forwards' });
-    $('stamp').style.opacity = .85;
-    Beam.sfx('stamp', null, 150);
-    paper.animate({ transform: ['translateY(0)', 'translateY(3px)', 'translateY(0)'] }, { duration: 160, delay: 180 });
-  } finally {
-    machine.classList.remove('work'); busy = false; render();
-    if ($('lcd').classList.contains('err')) setTimeout(() => { if (!busy) { led('on'); render(); } }, 2600);
+  function barcode(seed) {
+    let h = seed || 7, out = '';
+    for (let i = 0; i < 46; i++) { h = Math.imul(h ^ (h >>> 15), 2246822507) >>> 0; out += `<i style="width:${1 + (h % 3)}px;margin-right:${1 + ((h >> 4) % 3)}px"></i>`; }
+    $('barcode').innerHTML = out;
   }
-}
+  const lcd = (l, r = '', err = false) => { $('lcdL').textContent = l; $('lcdR').textContent = r; $('lcd').classList.toggle('err', err); };
+  const led = (state) => { $('led').className = 'led ' + state; };
 
-sendBtn.onclick = send;
-msg.addEventListener('input', render);
-msg.addEventListener('keydown', (e) => { if (!e.metaKey && !e.ctrlKey && (e.key.length === 1 || e.key === 'Backspace' || e.key === 'Enter')) Beam.sfx('type'); });
-$('attach').onclick = async () => setFile(await Beam.pickFile());
-$('unfile').onclick = () => setFile(null);
-$('clear').onclick = () => { msg.value = ''; setFile(null); };
-$('settings').onclick = $('toLine').onclick = Beam.openSettings;
-Beam.onConfig((c) => { $('toLine').textContent = `${Beam.serverHost()}/${c.topic}`; });
-if (!/Mac|iPhone|iPad/.test(navigator.platform)) $('thanks').textContent = 'PRESS CTRL↵ OR THE RED KEY';
-Beam.wire({ input: msg, onFile: setFile, onSend: send, onDrag: (on) => document.body.classList.toggle('drag', on) });
-freshSlip(); render();
-// Print the first slip on load.
-document.fonts.ready.then(() => { paper.parentElement.style.transform = 'translateY(calc(-100% - 20px))'; machine.classList.add('work');
-  feedOut(1100, 20).then(() => { machine.classList.remove('work'); paper.parentElement.style.transform = ''; }); });
-if (Beam.firstRun) setTimeout(Beam.openSettings, 1500);
-</script>
-</body>
-</html>
+  function render() {
+    const d = Beam.detect(msg.value, file), t = msg.value.trim();
+    $('type').textContent = d.kind === 'empty' ? '—' : d.kind === 'link' ? `LINK · ${d.host}` : d.kind === 'file' ? `FILE · ${d.size}` : 'NOTE';
+    $('count').textContent = `${t.length} CH`;
+    sendBtn.disabled = d.kind === 'empty';
+    if (!busy) d.kind === 'empty' ? lcd('READY') : lcd(d.kind === 'link' ? 'LINK' : d.kind === 'file' ? 'FILE' : 'NOTE', d.kind === 'file' ? d.size.replace(' ', '') : `${t.length}CH`);
+    barcode(hash(t + (file?.name || '')));
+    msg.style.height = 'auto'; msg.style.height = msg.scrollHeight + 'px';
+    if (t || file) $('stamp').style.opacity = 0;
+  }
+  function freshSlip() {
+    const d = new Date();
+    $('date').textContent = d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }).toUpperCase() + '  ' + d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+    $('no').textContent = 'NO. ' + pad(no);
+  }
+  function setFile(f) {
+    file = f || null;
+    $('file').classList.toggle('on', !!file);
+    if (file) { $('fname').textContent = file.name; $('fsize').textContent = Beam.fmtSize(file.size); }
+    msg.placeholder = file ? 'Add a message (optional)…' : 'Type a note or paste a link…';
+    render(); msg.focus();
+  }
+
+  /* ---------- paper feed ---------- */
+  const feedIn = () => sheet.animate(
+    [{ transform: 'translateY(0)' }, { transform: 'translate(-1px, -40%)' }, { transform: 'translate(1px, -75%)' }, { transform: 'translateY(calc(-100% - 20px))' }],
+    { duration: RM ? 1 : 950, easing: 'steps(16, end)', fill: 'forwards' }).finished;
+  const feedOut = (dur = 1200, steps = 22) => sheet.animate(
+    [{ transform: 'translateY(calc(-100% - 20px))' }, { transform: 'translate(1px, -50%)' }, { transform: 'translateY(0)' }],
+    { duration: RM ? 1 : dur, easing: `steps(${steps}, end)`, fill: 'forwards' }).finished;
+
+  async function send() {
+    const d = Beam.detect(msg.value, file);
+    if (d.kind === 'empty' || busy) return;
+    busy = true; sendBtn.disabled = true; sendBtn.classList.add('down'); setTimeout(() => sendBtn.classList.remove('down'), 140);
+    $('stamp').style.opacity = 0;
+    Beam.sfx('key'); Beam.sfx('feed', { steps: 16, dur: .95 }, 60);
+    machine.classList.add('work'); led('blink');
+    let dots = 0;
+    const progress = setInterval(() => lcd('TX', '▮'.repeat(dots++ % 6).padEnd(5, '▯')), 110);
+    signal.addEventListener('abort', () => clearInterval(progress));
+    const req = Beam.send({ text: msg.value, file });
+    const fedIn = feedIn();
+    try {
+      const [{ ms }] = await Promise.all([req, fedIn]);
+      clearInterval(progress);
+      if (signal.aborted) return;
+      machine.classList.remove('work');
+      led('on'); lcd('SENT ✓', `${ms}MS`);
+      Beam.sfx('bell');
+      navigator.vibrate?.(30);
+      const row = document.createElement('div');
+      row.innerHTML = `<span></span><span>NO.${pad(no)} · ${new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}</span>`;
+      row.firstChild.textContent = `${d.emoji} ${d.kind === 'link' ? d.host : d.kind === 'file' ? file.name : msg.value.trim().slice(0, 48)}`;
+      $('log').prepend(row); row.animate([{ opacity: 0, transform: 'translateY(-6px)' }, { opacity: 1, transform: 'none' }], 400);
+      while ($('log').children.length > 5) $('log').lastChild.remove();
+      no++; Beam.store.set('slip', no);
+      msg.value = ''; setFile(null); freshSlip();
+      await wait(250);
+      if (signal.aborted) return;
+      machine.classList.add('work');
+      Beam.sfx('feed', { steps: 22, dur: 1.2 });
+      await feedOut();
+    } catch (e) {
+      clearInterval(progress);
+      if (signal.aborted) return;
+      await fedIn.catch(() => {});
+      led('err'); lcd('ERR', '', true);
+      Beam.sfx('error'); Beam.sfx('feed', { steps: 8, dur: .42 });
+      $('stampWhy').textContent = e.message.toUpperCase().slice(0, 26);
+      await feedOut(420, 8);
+      $('stamp').animate([{ opacity: 0, transform: 'rotate(-9deg) scale(2.4)' }, { opacity: .9, transform: 'rotate(-9deg) scale(.96)', offset: .7 }, { opacity: .85, transform: 'rotate(-9deg) scale(1)' }],
+        { duration: RM ? 1 : 260, easing: 'cubic-bezier(.5, 0, .9, .5)', fill: 'forwards' });
+      $('stamp').style.opacity = .85;
+      Beam.sfx('stamp', null, 150);
+      paper.animate({ transform: ['translateY(0)', 'translateY(3px)', 'translateY(0)'] }, { duration: 160, delay: 180 });
+    } finally {
+      busy = false;
+      if (signal.aborted) return;
+      machine.classList.remove('work'); render();
+      if ($('lcd').classList.contains('err')) setTimeout(() => { if (!busy && !signal.aborted) { led('on'); render(); } }, 2600);
+    }
+  }
+
+  sendBtn.onclick = send;
+  msg.addEventListener('input', render);
+  msg.addEventListener('keydown', (e) => { if (!e.metaKey && !e.ctrlKey && (e.key.length === 1 || e.key === 'Backspace' || e.key === 'Enter')) Beam.sfx('type'); });
+  $('attach').onclick = async () => { const f = await Beam.pickFile(); if (f) setFile(f); };
+  $('unfile').onclick = () => setFile(null);
+  $('clear').onclick = () => { msg.value = ''; setFile(null); };
+  $('settings').onclick = $('toLine').onclick = Beam.openSettings;
+  Beam.onConfig((c) => { $('toLine').textContent = `${Beam.serverHost()}/${c.topic}`; }, signal);
+  if (!/Mac|iPhone|iPad/.test(navigator.platform)) $('thanks').textContent = 'PRESS CTRL↵ OR THE RED KEY';
+  Beam.wire({ input: msg, onFile: setFile, onSend: send, onDrag: (v) => document.body.classList.toggle('drag', v), signal });
+
+  freshSlip();
+  msg.value = draft.text || '';
+  setFile(draft.file);
+  // Print the slip out of the machine as the design appears.
+  sheet.style.transform = 'translateY(calc(-100% - 20px))';
+  machine.classList.add('work');
+  feedOut(1100, 20).then(() => { machine.classList.remove('work'); sheet.style.transform = ''; }, () => {});
+  return () => ({ text: msg.value, file });
+}

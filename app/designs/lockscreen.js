@@ -1,16 +1,8 @@
-<!doctype html>
-<html lang="en">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Beam · Lockscreen</title>
-<meta name="description" content="Send links, notes and files to your phone — with a live preview of the notification.">
-<meta name="theme-color" content="#f3f2ef">
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='7' fill='%234f6bff'/%3E%3C/svg%3E">
-<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Geist:wght@300..700&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
-<style>
-  @view-transition { navigation: auto; }
+import { Beam } from '../core.js';
+
+export const theme = '#f3f2ef';
+
+export const css = `
   :root {
     --bg: #f3f2ef; --card: #fff; --ink: #121212; --soft: #55554f; --muted: #96958f; --line: #e3e1dc; --hover: #efeeea;
     --accent: #4f6bff; --ok: #34c759; --err: #ff453a;
@@ -29,7 +21,6 @@
     background: radial-gradient(40% 35% at 75% 40%, color-mix(in srgb, var(--accent) 10%, transparent), transparent 70%); }
   .wrap { width: 100%; max-width: 980px; display: grid; grid-template-columns: 1fr 320px; gap: 72px; align-items: center; }
 
-  /* ---------- composer ---------- */
   .brand { display: flex; align-items: center; gap: 10px; font-weight: 600; margin-bottom: 40px; }
   .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 18%, transparent); }
   h1 { font-size: clamp(34px, 5vw, 50px); line-height: 1.02; letter-spacing: -.035em; font-weight: 600; }
@@ -62,12 +53,12 @@
   .send:disabled { opacity: .25; cursor: default; transform: none; }
   .send:disabled svg { transform: none; }
   .meta-row { display: flex; justify-content: space-between; align-items: center; margin-top: 14px; padding: 0 6px; font-size: 12.5px; color: var(--muted); }
-  .topic { border: 0; background: none; color: inherit; font: 12.5px "Geist Mono", monospace; cursor: pointer; padding: 4px 8px; border-radius: 8px; margin-left: -8px; }
+  .topic { border: 0; background: none; color: inherit; font: 12.5px "Geist Mono", monospace; cursor: pointer; padding: 4px 8px; border-radius: 8px; margin-left: -8px;
+           max-width: 70%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .topic:hover { background: var(--hover); color: var(--ink); }
   kbd { font: 11px "Geist Mono", monospace; border: 1px solid var(--line); border-radius: 5px; padding: 1px 5px; }
   @media (pointer: coarse) { .kbd-hint { display: none; } }
 
-  /* ---------- phone ---------- */
   .phone { position: relative; width: 320px; height: 650px; border-radius: 56px; padding: 11px; background: #0b0b0c;
            box-shadow: inset 0 0 0 1.5px #3a3a3e, inset 0 0 0 4px #0b0b0c, inset 0 0 0 5px #222, 0 50px 100px -30px rgb(20 20 40 / .45), 0 30px 60px -30px rgb(0 0 0 / .4); }
   .phone.buzz { animation: buzz .42s linear; }
@@ -122,16 +113,16 @@
     .phone { zoom: .74; }
   }
   @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
-</style>
-</head>
-<body>
+`;
+
+export const html = `
 <div class="wrap">
   <section class="composer">
     <div class="brand"><div class="dot"></div>Beam</div>
     <h1>Send it to your phone.<br><span>Instantly.</span></h1>
     <p class="sub">Paste a link, jot a note or drop a file. It shows up as a notification — no apps to sign into, no cables.</p>
     <div class="card" id="card">
-      <textarea id="msg" placeholder="Paste a link, type a note, or drop a file…" autofocus></textarea>
+      <textarea id="msg" placeholder="Paste a link, type a note, or drop a file…"></textarea>
       <div class="file" id="file"><div class="thumb" id="thumb"></div><div class="meta"><div class="n" id="fname"></div><div class="s" id="fsize"></div></div>
         <button class="icon" id="unfile" aria-label="Remove file"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button></div>
       <div class="bar">
@@ -155,141 +146,150 @@
     </div>
   </div>
 </div>
+`;
 
-<script src="core.js"></script>
-<script>
-const $ = (id) => document.getElementById(id);
-const msg = $('msg'), sendBtn = $('send'), stack = $('stack'), card = $('card'), phone = $('phone');
-let file = null, busy = false;
 const esc = (s) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
-/* ---------- clock ---------- */
-function tick() {
-  const d = new Date();
-  $('time').textContent = d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }).replace(/\s?[AP]M/i, '');
-  $('sbTime').textContent = $('time').textContent;
-  $('date').textContent = d.toLocaleDateString([], { weekday: 'long', month: 'long', day: 'numeric' });
-  for (const n of stack.querySelectorAll('.notif[data-t]')) {
-    const m = Math.floor((Date.now() - n.dataset.t) / 60000);
-    n.querySelector('.w').textContent = m < 1 ? 'now' : m < 60 ? `${m}m ago` : `${Math.floor(m / 60)}h ago`;
+export function mount({ signal, draft }) {
+  const $ = (id) => document.getElementById(id);
+  const msg = $('msg'), sendBtn = $('send'), stack = $('stack'), card = $('card'), phone = $('phone');
+  let file = null, busy = false;
+
+  /* ---------- clock ---------- */
+  function tick() {
+    const d = new Date();
+    $('time').textContent = d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }).replace(/\s?[AP]M/i, '');
+    $('sbTime').textContent = $('time').textContent;
+    $('date').textContent = d.toLocaleDateString([], { weekday: 'long', month: 'long', day: 'numeric' });
+    for (const n of stack.querySelectorAll('.notif[data-t]')) {
+      const m = Math.floor((Date.now() - n.dataset.t) / 60000);
+      n.querySelector('.w').textContent = m < 1 ? 'now' : m < 60 ? `${m}m ago` : `${Math.floor(m / 60)}h ago`;
+    }
   }
-}
-tick(); setInterval(tick, 15000);
+  tick();
+  const clock = setInterval(tick, 15000);
+  signal.addEventListener('abort', () => clearInterval(clock));
 
-/* ---------- notifications ---------- */
-function notif() {
-  const el = document.createElement('div');
-  el.className = 'notif draft ghost';
-  el.innerHTML = '<div class="app"></div><div><div class="h"><b></b><span class="w">preview</span></div><div class="b"></div><div class="sk"><i></i><i></i></div></div>';
-  return el;
-}
-const draft = () => stack.querySelector('.draft');
-function fill(el, d) {
-  el.classList.toggle('ghost', d.kind === 'empty');
-  if (d.kind === 'empty') return;
-  el.querySelector('b').textContent = `${d.emoji} ${d.title}`;
-  el.querySelector('.b').textContent = d.body;
-}
-stack.append(notif());
-
-/* FLIP: animate siblings smoothly when the stack changes */
-function flip(mutate) {
-  const before = new Map([...stack.children].map((c) => [c, c.getBoundingClientRect().top]));
-  mutate();
-  for (const c of stack.children) {
-    const was = before.get(c);
-    if (was == null) continue;
-    const dy = was - c.getBoundingClientRect().top;
-    if (dy) c.animate([{ transform: `translateY(${dy}px)` }, { transform: 'none' }], { duration: 520, easing: 'cubic-bezier(.2, 1.1, .3, 1)' });
+  /* ---------- notifications ---------- */
+  function notif() {
+    const el = document.createElement('div');
+    el.className = 'notif draft ghost';
+    el.innerHTML = '<div class="app"></div><div><div class="h"><b></b><span class="w">preview</span></div><div class="b"></div><div class="sk"><i></i><i></i></div></div>';
+    return el;
   }
-}
-
-/* ---------- composer ---------- */
-function render() {
-  const d = Beam.detect(msg.value, file);
-  $('chip').innerHTML = d.kind === 'empty' ? '' : `<b>${d.kind === 'link' ? 'Link' : d.kind === 'file' ? 'File' : 'Note'}</b> · ${esc(d.kind === 'link' ? d.host : d.kind === 'file' ? d.size : msg.value.trim().length + ' chars')}`;
-  sendBtn.disabled = d.kind === 'empty';
-  fill(draft(), d);
-}
-function setFile(f) {
-  file = f || null;
-  $('file').classList.toggle('on', !!file);
-  if (file) {
-    $('fname').textContent = file.name; $('fsize').textContent = Beam.fmtSize(file.size);
-    $('thumb').innerHTML = file.type.startsWith('image/') ? `<img src="${URL.createObjectURL(file)}" alt="">` : '📎';
+  const draftEl = () => stack.querySelector('.draft');
+  function fill(el, d) {
+    el.classList.toggle('ghost', d.kind === 'empty');
+    if (d.kind === 'empty') return;
+    el.querySelector('b').textContent = `${d.emoji} ${d.title}`;
+    el.querySelector('.b').textContent = d.body;
   }
-  msg.placeholder = file ? 'Add a message (optional)…' : 'Paste a link, type a note, or drop a file…';
-  render(); msg.focus();
-}
-msg.addEventListener('input', render);
-$('attach').onclick = async () => setFile(await Beam.pickFile());
-$('unfile').onclick = () => setFile(null);
-$('topic').onclick = Beam.openSettings;
-Beam.onConfig((c) => { $('topic').textContent = `→ ${Beam.serverHost()}/${c.topic}`; });
-if (!/Mac|iPhone|iPad/.test(navigator.platform)) $('mod').textContent = 'Ctrl';
+  stack.append(notif());
 
-/* ---------- island ---------- */
-let islandTimer;
-function island(text, ms, ok = true) {
-  const el = $('island');
-  $('islandText').textContent = text; $('islandMs').textContent = ms ?? '';
-  el.classList.toggle('err', !ok); el.classList.add('on');
-  clearTimeout(islandTimer); islandTimer = setTimeout(() => el.classList.remove('on'), 2200);
-}
-
-/* ---------- the flight: composer → phone along an arc ---------- */
-function fly(label, from, to) {
-  if (Beam.reducedMotion || !phone.offsetParent) return Promise.resolve();
-  const el = document.createElement('div');
-  el.className = 'fly'; el.textContent = label;
-  document.body.append(el);
-  const w = el.offsetWidth, h = el.offsetHeight;
-  const sx = from.left + 18, sy = from.top + 14, ex = to.left + to.width / 2 - w / 2, ey = to.top + to.height / 2 - h / 2;
-  const cx = (sx + ex) / 2, cy = Math.min(sy, ey) - 140;
-  const frames = [];
-  for (let i = 0; i <= 24; i++) {
-    const t = i / 24, u = 1 - t;
-    const x = u * u * sx + 2 * u * t * cx + t * t * ex, y = u * u * sy + 2 * u * t * cy + t * t * ey;
-    frames.push({ transform: `translate(${x}px, ${y}px) scale(${1 - t * .55}) rotate(${Math.sin(t * Math.PI) * -8}deg)`, opacity: t > .9 ? (1 - t) * 10 : 1 });
+  // FLIP: animate siblings smoothly when the stack changes.
+  function flip(mutate) {
+    const before = new Map([...stack.children].map((c) => [c, c.getBoundingClientRect().top]));
+    mutate();
+    for (const c of stack.children) {
+      const was = before.get(c);
+      if (was == null) continue;
+      const dy = was - c.getBoundingClientRect().top;
+      if (dy) c.animate([{ transform: `translateY(${dy}px)` }, { transform: 'none' }], { duration: 520, easing: 'cubic-bezier(.2, 1.1, .3, 1)' });
+    }
   }
-  el.style.left = el.style.top = '0';
-  return el.animate(frames, { duration: 720, easing: 'cubic-bezier(.45, 0, .2, 1)' }).finished.then(() => el.remove());
-}
 
-async function send() {
-  const d = Beam.detect(msg.value, file);
-  if (d.kind === 'empty' || busy) return;
-  busy = true; card.classList.add('sending'); sendBtn.disabled = true;
-  const label = d.kind === 'file' ? `📎 ${file.name}` : msg.value.trim().replace(/\s+/g, ' ').slice(0, 40);
-  const req = Beam.send({ text: msg.value, file });
-  Beam.sfx('send');
-  try {
-    await Promise.all([req, fly(label, msg.getBoundingClientRect(), draft().getBoundingClientRect())]);
-    const { ms } = await req;
-    const sent = draft();
-    phone.classList.remove('buzz'); void phone.offsetWidth; phone.classList.add('buzz');
-    navigator.vibrate?.(40);
-    Beam.sfx('buzz'); Beam.sfx('deliver', null, 300);
-    sent.classList.remove('draft'); sent.dataset.t = Date.now(); sent.querySelector('.w').textContent = 'now';
-    sent.animate([{ transform: 'scale(.92)', filter: 'brightness(1.4)' }, { transform: 'scale(1.03)' }, { transform: 'none' }], { duration: 480, easing: 'cubic-bezier(.2, 1.2, .4, 1)' });
-    const next = notif();
-    flip(() => stack.prepend(next));
-    next.animate([{ opacity: 0, transform: 'translateY(-14px) scale(.96)' }, { opacity: 1, transform: 'none' }], { duration: 420, delay: 240, fill: 'backwards', easing: 'cubic-bezier(.2, 1.2, .4, 1)' });
-    [...stack.querySelectorAll('.notif:not(.draft)')].forEach((n, i) => { n.classList.toggle('old', i > 0); if (i > 2) n.animate({ opacity: [1, 0] }, 300).finished.then(() => n.remove()); });
-    island('Delivered', `${ms}ms`);
-    msg.value = ''; setFile(null);
-  } catch (e) {
-    island(e.message.slice(0, 24), null, false);
-    Beam.sfx('error');
-    draft().animate({ transform: ['translateX(0)', 'translateX(-8px)', 'translateX(7px)', 'translateX(-4px)', 'translateX(0)'] }, 380);
-  } finally {
-    busy = false; card.classList.remove('sending'); render();
+  /* ---------- composer ---------- */
+  function render() {
+    const d = Beam.detect(msg.value, file);
+    $('chip').innerHTML = d.kind === 'empty' ? '' : `<b>${d.kind === 'link' ? 'Link' : d.kind === 'file' ? 'File' : 'Note'}</b> · ${esc(d.kind === 'link' ? d.host : d.kind === 'file' ? d.size : msg.value.trim().length + ' chars')}`;
+    sendBtn.disabled = d.kind === 'empty';
+    fill(draftEl(), d);
   }
+  function setFile(f) {
+    file = f || null;
+    $('file').classList.toggle('on', !!file);
+    if (file) {
+      $('fname').textContent = file.name; $('fsize').textContent = Beam.fmtSize(file.size);
+      $('thumb').innerHTML = file.type.startsWith('image/') ? `<img src="${URL.createObjectURL(file)}" alt="">` : '📎';
+    }
+    msg.placeholder = file ? 'Add a message (optional)…' : 'Paste a link, type a note, or drop a file…';
+    render(); msg.focus();
+  }
+
+  /* ---------- island ---------- */
+  let islandTimer;
+  function island(text, ms, ok = true) {
+    const el = $('island');
+    if (!el) return;
+    $('islandText').textContent = text; $('islandMs').textContent = ms ?? '';
+    el.classList.toggle('err', !ok); el.classList.add('on');
+    clearTimeout(islandTimer); islandTimer = setTimeout(() => el.classList.remove('on'), 2200);
+  }
+
+  /* ---------- the flight: composer → phone along an arc ---------- */
+  function fly(label, from, to) {
+    if (Beam.reducedMotion || !phone.offsetParent) return Promise.resolve();
+    const el = document.createElement('div');
+    el.className = 'fly'; el.textContent = label;
+    document.body.append(el);
+    signal.addEventListener('abort', () => el.remove());
+    const w = el.offsetWidth, h = el.offsetHeight;
+    const sx = from.left + 18, sy = from.top + 14, ex = to.left + to.width / 2 - w / 2, ey = to.top + to.height / 2 - h / 2;
+    const cx = (sx + ex) / 2, cy = Math.min(sy, ey) - 140;
+    const frames = [];
+    for (let i = 0; i <= 24; i++) {
+      const t = i / 24, u = 1 - t;
+      const x = u * u * sx + 2 * u * t * cx + t * t * ex, y = u * u * sy + 2 * u * t * cy + t * t * ey;
+      frames.push({ transform: `translate(${x}px, ${y}px) scale(${1 - t * .55}) rotate(${Math.sin(t * Math.PI) * -8}deg)`, opacity: t > .9 ? (1 - t) * 10 : 1 });
+    }
+    el.style.left = el.style.top = '0';
+    return el.animate(frames, { duration: 720, easing: 'cubic-bezier(.45, 0, .2, 1)' }).finished.then(() => el.remove(), () => el.remove());
+  }
+
+  async function send() {
+    const d = Beam.detect(msg.value, file);
+    if (d.kind === 'empty' || busy) return;
+    busy = true; card.classList.add('sending'); sendBtn.disabled = true;
+    const label = d.kind === 'file' ? `📎 ${file.name}` : msg.value.trim().replace(/\s+/g, ' ').slice(0, 40);
+    const req = Beam.send({ text: msg.value, file });
+    Beam.sfx('send');
+    try {
+      await Promise.all([req, fly(label, msg.getBoundingClientRect(), draftEl().getBoundingClientRect())]);
+      const { ms } = await req;
+      if (signal.aborted) return;
+      const sent = draftEl();
+      phone.classList.remove('buzz'); void phone.offsetWidth; phone.classList.add('buzz');
+      navigator.vibrate?.(40);
+      Beam.sfx('buzz'); Beam.sfx('deliver', null, 300);
+      sent.classList.remove('draft'); sent.dataset.t = Date.now(); sent.querySelector('.w').textContent = 'now';
+      sent.animate([{ transform: 'scale(.92)', filter: 'brightness(1.4)' }, { transform: 'scale(1.03)' }, { transform: 'none' }], { duration: 480, easing: 'cubic-bezier(.2, 1.2, .4, 1)' });
+      const next = notif();
+      flip(() => stack.prepend(next));
+      next.animate([{ opacity: 0, transform: 'translateY(-14px) scale(.96)' }, { opacity: 1, transform: 'none' }], { duration: 420, delay: 240, fill: 'backwards', easing: 'cubic-bezier(.2, 1.2, .4, 1)' });
+      [...stack.querySelectorAll('.notif:not(.draft)')].forEach((n, i) => { n.classList.toggle('old', i > 0); if (i > 2) n.animate({ opacity: [1, 0] }, 300).finished.then(() => n.remove()); });
+      island('Delivered', `${ms}ms`);
+      msg.value = ''; setFile(null);
+    } catch (e) {
+      if (signal.aborted) return;
+      island(e.message.slice(0, 24), null, false);
+      Beam.sfx('error');
+      draftEl().animate({ transform: ['translateX(0)', 'translateX(-8px)', 'translateX(7px)', 'translateX(-4px)', 'translateX(0)'] }, 380);
+    } finally {
+      busy = false; card.classList.remove('sending');
+      if (!signal.aborted) render();
+    }
+  }
+
+  msg.addEventListener('input', render);
+  sendBtn.onclick = send;
+  $('attach').onclick = async () => { const f = await Beam.pickFile(); if (f) setFile(f); };
+  $('unfile').onclick = () => setFile(null);
+  $('topic').onclick = Beam.openSettings;
+  Beam.onConfig((c) => { $('topic').textContent = `→ ${Beam.serverHost()}/${c.topic}`; }, signal);
+  if (!/Mac|iPhone|iPad/.test(navigator.platform)) $('mod').textContent = 'Ctrl';
+  Beam.wire({ input: msg, onFile: setFile, onSend: send, onDrag: (on) => card.classList.toggle('drag', on), signal });
+
+  msg.value = draft.text || '';
+  setFile(draft.file);
+  return () => ({ text: msg.value, file });
 }
-sendBtn.onclick = send;
-Beam.wire({ input: msg, onFile: setFile, onSend: send, onDrag: (on) => card.classList.toggle('drag', on) });
-render();
-if (Beam.firstRun) setTimeout(Beam.openSettings, 700);
-</script>
-</body>
-</html>

@@ -4,16 +4,13 @@ Send a link, a note or a file from your computer to your phone, built on [ntfy](
 No account, no backend, no build step.
 
 ```
-index.html              the original minimal web app (one file)
-concepts/               three animated design directions, sharing one engine
-  index.html            gallery with video previews        → /concepts
-  lockscreen.html       live phone preview + arc flight    → /concepts/lockscreen
-  signal.html           particles, beam and warp           → /concepts/signal
-  teleprinter.html      receipt slip fed into a machine    → /concepts/teleprinter
-  core.js               config, detection, sending, settings sheet, sound effects, dock
+index.html              the page: one URL, four designs, swapped in place
+app/main.js             mounts the chosen design and remembers it
+app/core.js             config, detection, sending, settings sheet, sound effects
+app/designs/            classic, lockscreen, signal, teleprinter (each loaded on demand)
 beam                    the same thing as a shell command
 mock.mjs                a fake ntfy server for local testing (DELAY=250 node mock.mjs)
-vercel.json             clean URLs + cache headers
+vercel.json             security headers
 ```
 
 ## How it works
@@ -45,6 +42,7 @@ pbpaste | beam
 
 ## Things to know
 
+- **History stays local.** Everything you send is listed under the clock button (last 7 days by default). It lives in this browser's storage only and never leaves your machine; files are listed by name, not stored.
 - **Topics are public.** Anyone who knows (or guesses) your topic name can read and send to it, so treat the name like a password. For real privacy, [self-host ntfy](https://docs.ntfy.sh/install/) or reserve a topic with an ntfy.sh account and set an access token in Beam's settings.
 - **ntfy.sh free limits:** about 250 messages per day per IP address; attachments up to 15 MB that expire after a few hours.
 - **iOS:** notifications arrive through Apple's push service and can take a few seconds.
