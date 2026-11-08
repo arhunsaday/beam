@@ -1,0 +1,50 @@
+#!/usr/bin/env sh
+# beam — send a link, text or file to your phone via ntfy.
+#
+#   beam https://example.com      link (tap the notification to open it)
+#   beam "pick up milk"           text
+#   beam -f ~/Desktop/photo.jpg   file (up to 15 MB on ntfy.sh)
+#   pbpaste | beam                stdin
+#
+# Config (env): BEAM_TOPIC (required), BEAM_SERVER (default https://ntfy.sh), BEAM_TOKEN (optional)
+set -eu
+
+server="${BEAM_SERVER:-https://ntfy.sh}"
+topic="${BEAM_TOPIC:-}"
+[ -n "$topic" ] || { echo "beam: set BEAM_TOPIC, e.g.  export BEAM_TOPIC=beam-$(LC_ALL=C tr -dc a-z0-9 </dev/urandom | head -c 12)" >&2; exit 1; }
+url="${server%/}/$topic"
+
+post() { # extra curl args...
+  if [ -n "${BEAM_TOKEN:-}" ]; then
+    curl -fsS -o /dev/null -H "Authorization: Bearer $BEAM_TOKEN" "$@" "$url"
+  else
+    curl -fsS -o /dev/null "$@" "$url"
+  fi
+}
+
+if [ "${1:-}" = "-f" ]; then
+  f="${2:?usage: beam -f FILE [message]}"
+  [ -f "$f" ] || { echo "beam: no such file: $f" >&2; exit 1; }
+  if [ -n "${3:-}" ]; then
+    post -T "$f" -H "Filename: $(basename "$f")" -H "Title: $(basename "$f")" -H "Tags: paperclip" -H "Message: $3"
+  else
+    post -T "$f" -H "Filename: $(basename "$f")" -H "Title: $(basename "$f")" -H "Tags: paperclip"
+  fi
+  echo "→ sent file $(basename "$f")"
+  exit
+fi
+
+if [ $# -gt 0 ]; then msg="$*"; elif [ ! -t 0 ]; then msg="$(cat)"; else sed -n '2,9s/^# \{0,1\}//p' "$0"; exit 1; fi
+[ -n "$msg" ] || { echo "beam: nothing to send" >&2; exit 1; }
+
+case "$msg" in
+  http://*|https://*)
+    if [ "$msg" = "$(printf %s "$msg" | tr -d ' \n\t')" ]; then
+      host=$(printf %s "$msg" | sed -E 's#^https?://(www\.)?([^/:?]+).*#\2#')
+      post --data-binary "$msg" -H "Click: $msg" -H "Title: $host" -H "Tags: link"
+      echo "→ sent link $host"; exit
+    fi ;;
+esac
+
+printf %s "$msg" | post --data-binary @- -H "Title: Note" -H "Tags: memo"
+echo "→ sent note"

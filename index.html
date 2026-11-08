@@ -1,0 +1,315 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Beam</title>
+<meta name="description" content="Send links, text and files to your phone via ntfy.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='7' fill='%234f6bff'/%3E%3C/svg%3E">
+<style>
+  @view-transition { navigation: auto; }
+  :root {
+    --bg: #f5f5f3; --card: #ffffff; --ink: #121212; --soft: #5c5c58; --muted: #9a9a95;
+    --line: #e8e8e4; --hover: #f0f0ed; --accent: #4f6bff; --ok: #17a34a; --err: #dc3b3b;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0c0c0d; --card: #151517; --ink: #ececea; --soft: #a3a3a0; --muted: #6b6b6e;
+      --line: #252528; --hover: #1d1d20; --accent: #8096ff; --ok: #3ccf74; --err: #ff6b6b;
+      color-scheme: dark;
+    }
+  }
+  * { box-sizing: border-box; margin: 0; }
+  html, body { min-height: 100%; }
+  body {
+    background: var(--bg); color: var(--ink);
+    font: 15px/1.5 -apple-system, BlinkMacSystemFont, "SF Pro Text", "Inter", "Segoe UI", system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    display: grid; place-items: center; padding: 32px 16px;
+  }
+  main { width: 100%; max-width: 540px; }
+  .mono { font-family: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, monospace; }
+
+  header { display: flex; align-items: center; justify-content: space-between; padding: 0 6px 14px; }
+  .brand { display: flex; align-items: center; gap: 10px; font-weight: 600; letter-spacing: -.01em; }
+  .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--accent);
+         box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 16%, transparent); }
+  .topic-btn { display: flex; align-items: center; gap: 6px; border: 0; background: none; color: var(--muted);
+               font-size: 12.5px; padding: 5px 9px; border-radius: 8px; cursor: pointer; max-width: 70%; }
+  .topic-btn span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .topic-btn:hover, .topic-btn[aria-expanded="true"] { background: var(--hover); color: var(--ink); }
+
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 20px; padding: 4px;
+          box-shadow: 0 1px 2px rgb(0 0 0 / .03), 0 12px 40px -12px rgb(0 0 0 / .08);
+          transition: border-color .15s, box-shadow .15s; }
+  .card.drag { border-color: var(--accent); box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 14%, transparent); }
+
+  textarea { display: block; width: 100%; min-height: 168px; resize: none; border: 0; outline: 0;
+             background: transparent; color: inherit; font: inherit; font-size: 17px; line-height: 1.5;
+             padding: 18px 18px 6px; }
+  textarea::placeholder { color: var(--muted); }
+
+  .file { display: none; align-items: center; gap: 12px; margin: 4px 12px 0; padding: 10px 12px;
+          border: 1px solid var(--line); border-radius: 12px; }
+  .file.on { display: flex; }
+  .file .ico { width: 34px; height: 34px; border-radius: 9px; background: var(--hover); display: grid; place-items: center;
+               overflow: hidden; flex: none; color: var(--soft); }
+  .file .ico img { width: 100%; height: 100%; object-fit: cover; }
+  .file .meta { min-width: 0; flex: 1; }
+  .file .name { font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .file .size { font-size: 12px; color: var(--muted); }
+
+  .bar { display: flex; align-items: center; gap: 4px; padding: 8px 8px 8px 10px; }
+  .chip { flex: 1; min-width: 0; display: flex; align-items: center; gap: 7px; font-size: 12.5px; color: var(--muted);
+          white-space: nowrap; overflow: hidden; padding-left: 4px; }
+  .chip b { font-weight: 500; color: var(--soft); }
+  .chip span { overflow: hidden; text-overflow: ellipsis; }
+  .icon { width: 36px; height: 36px; border: 0; border-radius: 10px; background: none; color: var(--muted);
+          display: grid; place-items: center; cursor: pointer; flex: none; }
+  .icon:hover { background: var(--hover); color: var(--ink); }
+  .send { display: flex; align-items: center; gap: 10px; border: 0; border-radius: 13px; cursor: pointer;
+          background: var(--ink); color: var(--card); font: inherit; font-weight: 560; padding: 9px 12px 9px 16px;
+          transition: opacity .15s, transform .1s; }
+  .send:active { transform: scale(.97); }
+  .send:disabled { opacity: .28; cursor: default; transform: none; }
+  .send kbd { font: 11px ui-monospace, Menlo, monospace; opacity: .5; padding: 1px 5px; border-radius: 5px;
+              border: 1px solid color-mix(in srgb, var(--card) 35%, transparent); }
+  @media (pointer: coarse) { .send kbd { display: none; } }
+  .send.busy { opacity: .6; pointer-events: none; }
+
+  .settings { display: none; margin-top: 12px; background: var(--card); border: 1px solid var(--line);
+              border-radius: 16px; padding: 16px; gap: 12px; }
+  .settings.on { display: grid; }
+  label { display: grid; gap: 5px; font-size: 12px; color: var(--muted); }
+  input { width: 100%; font: 14px ui-monospace, "SF Mono", Menlo, monospace; color: var(--ink); background: var(--bg);
+          border: 1px solid var(--line); border-radius: 10px; padding: 9px 11px; outline: 0; }
+  input:focus { border-color: var(--accent); }
+  .row { display: flex; gap: 8px; }
+  .row input { flex: 1; }
+  .ghost { border: 1px solid var(--line); background: none; color: var(--soft); border-radius: 10px; padding: 0 12px;
+           font: inherit; font-size: 13px; cursor: pointer; white-space: nowrap; }
+  .ghost:hover { background: var(--hover); color: var(--ink); }
+  .note { font-size: 12.5px; color: var(--soft); line-height: 1.55; }
+  .note a { color: var(--accent); text-decoration: none; }
+
+  .hint { text-align: center; color: var(--muted); font-size: 12.5px; margin-top: 16px; }
+
+  .toast { position: fixed; left: 50%; bottom: 28px; transform: translate(-50%, 16px); opacity: 0;
+           display: flex; align-items: center; gap: 8px; background: var(--ink); color: var(--card);
+           font-size: 14px; padding: 9px 14px; border-radius: 999px; pointer-events: none;
+           transition: opacity .2s, transform .25s cubic-bezier(.2,.9,.3,1.2); }
+  .toast.on { opacity: 1; transform: translate(-50%, 0); }
+  .toast i { width: 7px; height: 7px; border-radius: 50%; background: var(--ok); }
+  .toast.err i { background: var(--err); }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <div class="brand"><div class="dot"></div>Beam</div>
+    <button class="topic-btn mono" id="topicBtn" aria-expanded="false" title="Settings">
+      <span id="topicLabel"></span>
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="m6 9 6 6 6-6"/></svg>
+    </button>
+  </header>
+
+  <div class="card" id="card">
+    <textarea id="msg" placeholder="Paste a link, type a note, or drop a file…" autofocus></textarea>
+
+    <div class="file" id="file">
+      <div class="ico" id="fileIco"></div>
+      <div class="meta"><div class="name" id="fileName"></div><div class="size" id="fileSize"></div></div>
+      <button class="icon" id="fileClear" title="Remove file">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+      </button>
+    </div>
+
+    <div class="bar">
+      <div class="chip" id="chip"></div>
+      <button class="icon" id="attach" title="Attach file">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="m21.4 11.1-8.5 8.5a5.5 5.5 0 0 1-7.8-7.8l8.5-8.5a3.7 3.7 0 0 1 5.2 5.2l-8.5 8.5a1.8 1.8 0 0 1-2.6-2.6l7.8-7.8"/></svg>
+      </button>
+      <button class="send" id="send" disabled>Send <kbd id="kbd">⌘↵</kbd></button>
+    </div>
+    <input type="file" id="picker" hidden>
+  </div>
+
+  <section class="settings" id="settings">
+    <label>Topic
+      <div class="row"><input id="topic" spellcheck="false" autocomplete="off"><button class="ghost" id="regen">New</button></div>
+    </label>
+    <label>Server <input id="server" spellcheck="false" autocomplete="off" placeholder="https://ntfy.sh"></label>
+    <label><span>Access token <span style="opacity:.7">· optional</span></span>
+      <input id="token" type="password" spellcheck="false" autocomplete="off" placeholder="tk_…">
+    </label>
+    <p class="note">
+      On your phone, install <a href="https://ntfy.sh" target="_blank" rel="noopener">ntfy</a>, tap <b>+</b> and subscribe to
+      <b class="mono" id="topicNote"></b>. Anyone who knows a topic name can read it, so keep it hard to guess.
+    </p>
+  </section>
+
+  <p class="hint" id="hint">Links open on tap · Files up to 15 MB · Paste images directly</p>
+</main>
+
+<div class="toast" id="toast"><i></i><span id="toastText"></span></div>
+
+<script src="concepts/core.js"></script>
+<script>
+const $ = (id) => document.getElementById(id);
+const store = {
+  get: (k, d) => { try { return localStorage.getItem('beam.' + k) ?? d; } catch { return d; } },
+  set: (k, v) => { try { localStorage.setItem('beam.' + k, v); } catch {} },
+};
+const randomTopic = () => {
+  const abc = 'abcdefghijkmnpqrstuvwxyz23456789';
+  return 'beam-' + Array.from(crypto.getRandomValues(new Uint8Array(12)), (b) => abc[b % abc.length]).join('');
+};
+
+const cfg = {
+  server: store.get('server', 'https://ntfy.sh'),
+  topic: store.get('topic', '') || randomTopic(),
+  token: store.get('token', ''),
+};
+store.set('topic', cfg.topic);
+const firstRun = !store.get('seen', '');
+
+const msg = $('msg'), sendBtn = $('send'), card = $('card');
+let file = null;
+
+/* ---------- settings ---------- */
+function syncSettings() {
+  $('topic').value = cfg.topic; $('server').value = cfg.server; $('token').value = cfg.token;
+  const host = cfg.server.replace(/^https?:\/\//, '').replace(/\/+$/, '');
+  $('topicLabel').textContent = `${host}/${cfg.topic}`;
+  $('topicNote').textContent = cfg.topic;
+}
+function toggleSettings(force) {
+  const on = force ?? !$('settings').classList.contains('on');
+  $('settings').classList.toggle('on', on);
+  $('topicBtn').setAttribute('aria-expanded', on);
+  if (on) store.set('seen', '1');
+}
+$('topicBtn').onclick = () => toggleSettings();
+for (const k of ['topic', 'server', 'token']) {
+  $(k).addEventListener('input', (e) => {
+    cfg[k] = e.target.value.trim() || (k === 'server' ? 'https://ntfy.sh' : '');
+    store.set(k, cfg[k]); syncSettings(); $(k).value = e.target.value;
+  });
+}
+$('regen').onclick = () => { cfg.topic = randomTopic(); store.set('topic', cfg.topic); syncSettings(); };
+
+/* ---------- content detection ---------- */
+const isUrl = (s) => /^https?:\/\/[^\s]+$/i.test(s);
+const fmtSize = (n) => n < 1024 ? n + ' B' : n < 1048576 ? (n / 1024).toFixed(0) + ' KB' : (n / 1048576).toFixed(1) + ' MB';
+const kind = () => file ? 'file' : !msg.value.trim() ? 'empty' : isUrl(msg.value.trim()) ? 'link' : 'text';
+
+const ICONS = {
+  link: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7"/><path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7"/></svg>',
+  text: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h10"/></svg>',
+  file: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6"/></svg>',
+};
+function render() {
+  const k = kind(), t = msg.value.trim();
+  let html = '';
+  if (k === 'link') html = `${ICONS.link}<b>Link</b><span>${new URL(t).hostname.replace(/^www\./, '')}</span>`;
+  if (k === 'text') html = `${ICONS.text}<b>Note</b><span>${t.length} chars</span>`;
+  if (k === 'file') html = `${ICONS.file}<b>File</b><span>${t ? 'with message' : 'tap to download'}</span>`;
+  $('chip').innerHTML = html;
+  sendBtn.disabled = k === 'empty';
+  msg.placeholder = file ? 'Add a message (optional)…' : 'Paste a link, type a note, or drop a file…';
+}
+msg.addEventListener('input', render);
+
+/* ---------- files ---------- */
+function setFile(f) {
+  file = f || null;
+  $('file').classList.toggle('on', !!file);
+  if (file) {
+    $('fileName').textContent = file.name; $('fileSize').textContent = fmtSize(file.size);
+    $('fileIco').innerHTML = file.type.startsWith('image/')
+      ? `<img src="${URL.createObjectURL(file)}" alt="">` : ICONS.file.replace('width="14" height="14"', 'width="18" height="18"');
+  }
+  render(); msg.focus();
+}
+$('attach').onclick = () => $('picker').click();
+$('picker').onchange = (e) => { setFile(e.target.files[0]); e.target.value = ''; };
+$('fileClear').onclick = () => setFile(null);
+msg.addEventListener('paste', (e) => {
+  const f = [...(e.clipboardData?.files || [])][0];
+  if (f) { e.preventDefault(); setFile(f.name === 'image.png' ? new File([f], `paste-${Date.now()}.png`, { type: f.type }) : f); }
+});
+let dragDepth = 0;
+addEventListener('dragenter', (e) => { e.preventDefault(); dragDepth++; card.classList.add('drag'); });
+addEventListener('dragleave', () => { if (--dragDepth <= 0) { dragDepth = 0; card.classList.remove('drag'); } });
+addEventListener('dragover', (e) => e.preventDefault());
+addEventListener('drop', (e) => {
+  e.preventDefault(); dragDepth = 0; card.classList.remove('drag');
+  if (e.dataTransfer.files[0]) setFile(e.dataTransfer.files[0]);
+  else { const t = e.dataTransfer.getData('text'); if (t) { msg.value = t; render(); } }
+});
+
+/* ---------- send ---------- */
+let toastTimer;
+function toast(text, err = false) {
+  $('toastText').textContent = text; $('toast').classList.toggle('err', err); $('toast').classList.add('on');
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => $('toast').classList.remove('on'), 2400);
+}
+
+async function send() {
+  const k = kind(), t = msg.value.trim();
+  if (k === 'empty' || sendBtn.classList.contains('busy')) return;
+  if (!cfg.topic) { toggleSettings(true); $('topic').focus(); return toast('Set a topic first', true); }
+
+  // Metadata goes in query params: no CORS preflight, and no header-encoding issues with emoji/non-ASCII.
+  const url = new URL(cfg.server.replace(/\/+$/, '') + '/' + encodeURIComponent(cfg.topic));
+  const q = url.searchParams;
+  let method = 'POST', body = t;
+  if (k === 'link') {
+    q.set('title', new URL(t).hostname.replace(/^www\./, ''));
+    q.set('click', t);
+    q.set('tags', 'link');
+  } else if (k === 'text') {
+    q.set('title', 'Note');
+    q.set('tags', 'memo');
+  } else {
+    method = 'PUT'; body = file;
+    q.set('filename', file.name);
+    q.set('tags', 'paperclip');
+    if (t) q.set('message', t);
+  }
+  const headers = cfg.token ? { Authorization: 'Bearer ' + cfg.token } : {};
+
+  sendBtn.classList.add('busy'); sendBtn.firstChild.textContent = 'Sending ';
+  try {
+    window.Beam?.sfx('send');
+    const res = await fetch(url, { method, body, headers });
+    if (!res.ok) {
+      const j = await res.json().catch(() => ({}));
+      throw new Error(j.error || `HTTP ${res.status}`);
+    }
+    msg.value = ''; setFile(null);
+    window.Beam?.sfx('deliver');
+    toast(k === 'link' ? 'Link sent' : k === 'file' ? 'File sent' : 'Note sent');
+  } catch (e) {
+    window.Beam?.sfx('error');
+    toast(e.message === 'Failed to fetch' ? 'Couldn’t reach server' : e.message, true);
+  } finally {
+    sendBtn.classList.remove('busy'); sendBtn.firstChild.textContent = 'Send ';
+  }
+}
+sendBtn.onclick = send;
+addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); send(); }
+  if (e.key === 'Escape') { msg.value = ''; setFile(null); }
+});
+
+/* ---------- init ---------- */
+if (!/Mac|iPhone|iPad/.test(navigator.platform)) $('kbd').textContent = 'Ctrl ↵';
+const pre = new URLSearchParams(location.search).get('text') || new URLSearchParams(location.search).get('url');
+if (pre) msg.value = pre;
+syncSettings(); render();
+if (firstRun) toggleSettings(true);
+</script>
+</body>
+</html>
