@@ -97,7 +97,7 @@
   function buildSettings() {
     const css = document.createElement('style');
     css.textContent = `
-      .beam-dlg { border: 0; padding: 0; background: none; color: var(--beam-ink, #111); width: min(420px, calc(100vw - 32px)); max-width: none; overflow: visible; }
+      .beam-dlg { position: fixed; inset: 0; margin: auto; height: fit-content; max-height: calc(100dvh - 32px); border: 0; padding: 0; background: none; color: var(--beam-ink, #111); width: min(420px, calc(100vw - 32px)); max-width: none; overflow: visible; }
       .beam-dlg::backdrop { background: rgb(0 0 0 / .4); backdrop-filter: blur(6px); }
       .beam-dlg[open] .beam-sheet { animation: beam-pop .32s cubic-bezier(.2, 1.3, .4, 1); }
       @keyframes beam-pop { from { opacity: 0; transform: translateY(12px) scale(.96); } }
